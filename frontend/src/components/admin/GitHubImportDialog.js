@@ -60,7 +60,7 @@ const GitHubImportDialog = ({ open, onClose, onImport }) => {
             description: repo.description || '',
             technologies: details.languages,
             githubLink: repo.html_url,
-            liveDemoLink: repo.homepage || ''
+            hostLink: repo.homepage || ''
           };
         })
       );

@@ -1,11 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const { getTestimonials, addTestimonial, updateTestimonial, deleteTestimonial } = require('../controllers/testimonialController');
-const authMiddleware = require('../middleware/authMiddleware');
+const { auth, adminOnly } = require('../middleware/authMiddleware');
+const testimonialController = require('../controllers/testimonialController');
 
-router.get('/', getTestimonials);
-router.post('/', authMiddleware, addTestimonial);
-router.put('/:id', authMiddleware, updateTestimonial);
-router.delete('/:id', authMiddleware, deleteTestimonial);
+// Public routes
+router.get('/', testimonialController.getTestimonials);
+
+// User routes - require authentication
+router.post('/', auth, testimonialController.addTestimonial);
+
+// Admin routes - require authentication and admin role
+router.put('/:id', auth, adminOnly, testimonialController.updateTestimonial);
+router.delete('/:id', auth, adminOnly, testimonialController.deleteTestimonial);
+router.put('/:id/approve', auth, adminOnly, testimonialController.approveTestimonial);
 
 module.exports = router; 

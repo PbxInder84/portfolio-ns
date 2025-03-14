@@ -1,10 +1,18 @@
 const nodemailer = require('nodemailer');
+const dotenv = require('dotenv');
+
+dotenv.config();
+
+if (!process.env.NODEMAILER_USER || !process.env.NODEMAILER_PASS) {
+  console.error('Error: NODEMAILER_USER or NODEMAILER_PASS is not set in the environment variables.');
+  process.exit(1); // Exit the process with an error code
+}
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',  // Change back to using 'service' instead of host/port
   auth: {
     user: process.env.NODEMAILER_USER,
-    pass: process.env.NODEMAILER_PASS.replace(/\s/g, '') // Remove any spaces from the password
+    pass: process.env.NODEMAILER_PASS
   }
 });
 

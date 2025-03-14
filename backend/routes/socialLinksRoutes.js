@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getSocialLinks, addSocialLink, updateSocialLink, deleteSocialLink } = require('../controllers/socialLinksController');
-const authMiddleware = require('../middleware/authMiddleware');
+const { auth, adminOnly } = require('../middleware/authMiddleware');
+const socialLinkController = require('../controllers/socialLinkController');
 
-router.get('/', getSocialLinks);
-router.post('/', authMiddleware, addSocialLink);
-router.put('/:id', authMiddleware, updateSocialLink);
-router.delete('/:id', authMiddleware, deleteSocialLink);
+// Public routes
+router.get('/', socialLinkController.getSocialLinks);
+
+// Admin routes - require authentication and admin role
+router.put('/', auth, adminOnly, socialLinkController.updateSocialLinks);
 
 module.exports = router; 

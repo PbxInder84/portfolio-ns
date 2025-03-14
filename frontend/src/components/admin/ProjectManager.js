@@ -6,37 +6,41 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
-  Chip,
-  Stack
+  Stack,
+  Typography,
+  Container,
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import { Add as AddIcon, GitHub as GitHubIcon } from '@mui/icons-material';
 import DataTable from '../DataTable';
 import GitHubImportDialog from './GitHubImportDialog';
 import api from '../../services/api';
 import LoadingSpinner from '../LoadingSpinner';
+import ProjectForm from './ProjectForm';
+import ConfirmDialog from '../ConfirmDialog';
+import { useNavigate } from 'react-router-dom';
 
 const ProjectManager = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState(null);
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    technologies: '',
-    githubLink: '',
-    liveDemoLink: ''
-  });
   const [githubDialogOpen, setGithubDialogOpen] = useState(false);
+  const [openConfirm, setOpenConfirm] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState(null);
+  const navigate = useNavigate();
 
   const columns = [
-    { id: 'title', label: 'Title' },
-    { id: 'description', label: 'Description' },
-    { 
-      id: 'technologies', 
-      label: 'Technologies',
-      format: (technologies) => technologies.join(', ')
+    { id: 'title', label: 'Title', minWidth: 170 },
+    { id: 'description', label: 'Description', minWidth: 200,
+      format: (value) => value?.length > 100 ? `${value.substring(0, 100)}...` : value
+    },
+    { id: 'technologies', label: 'Technologies', minWidth: 150,
+      format: (value) => Array.isArray(value) ? value.join(', ') : value
+    },
+    { id: 'createdAt', label: 'Created', minWidth: 120,
+      format: (value) => value ? new Date(value).toLocaleDateString() : 'N/A'
     }
   ];
 
@@ -46,62 +50,26 @@ const ProjectManager = () => {
 
   const fetchProjects = async () => {
     try {
+      setLoading(true);
       const response = await api.get('/projects');
-      setProjects(response.data);
-    } catch (error) {
-      console.error('Error fetching projects:', error);
+      const projectsData = response.data.data || response.data || [];
+      setProjects(Array.isArray(projectsData) ? projectsData : []);
+    } catch (err) {
+      console.error('Error fetching projects:', err);
+      setProjects([]);
     } finally {
       setLoading(false);
     }
   };
 
   const handleOpen = (project = null) => {
-    if (project) {
-      setCurrentProject(project);
-      setFormData({
-        title: project.title,
-        description: project.description,
-        technologies: project.technologies.join(', '),
-        githubLink: project.githubLink || '',
-        liveDemoLink: project.liveDemoLink || ''
-      });
-    } else {
-      setCurrentProject(null);
-      setFormData({
-        title: '',
-        description: '',
-        technologies: '',
-        githubLink: '',
-        liveDemoLink: ''
-      });
-    }
+    setCurrentProject(project);
     setOpen(true);
   };
 
   const handleClose = () => {
     setOpen(false);
     setCurrentProject(null);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const projectData = {
-        ...formData,
-        technologies: formData.technologies.split(',').map(tech => tech.trim())
-      };
-
-      if (currentProject) {
-        await api.put(`/projects/${currentProject._id}`, projectData);
-      } else {
-        await api.post('/projects', projectData);
-      }
-      
-      fetchProjects();
-      handleClose();
-    } catch (error) {
-      console.error('Error saving project:', error);
-    }
   };
 
   const handleDelete = async (id) => {
@@ -126,32 +94,70 @@ const ProjectManager = () => {
     }
   };
 
+  const handleAddProject = () => {
+    setCurrentProject(null);
+    setOpen(true);
+  };
+
+  const handleEditProject = (project) => {
+    setCurrentProject(project);
+    setOpen(true);
+  };
+
+  const handleViewProject = (project) => {
+    navigate(`/projects/${project.id || project._id}`);
+  };
+
+  const handleDeleteClick = (project) => {
+    setProjectToDelete(project);
+    setOpenConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!projectToDelete) return;
+    
+    try {
+      await api.delete(`/projects/${projectToDelete.id || projectToDelete._id}`);
+      fetchProjects();
+      setOpenConfirm(false);
+      setProjectToDelete(null);
+    } catch (err) {
+      console.error('Error deleting project:', err);
+    }
+  };
+
+  const handleFormClose = (refreshData) => {
+    setOpen(false);
+    if (refreshData) {
+      fetchProjects();
+    }
+  };
+
   if (loading) return <LoadingSpinner />;
 
   return (
-    <Box>
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-        <Button
-          variant="contained"
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+        <Typography variant="h4" component="h1">
+          Manage Projects
+        </Typography>
+        <Button 
+          variant="contained" 
+          color="primary" 
           startIcon={<AddIcon />}
-          onClick={() => handleOpen()}
+          onClick={handleAddProject}
         >
           Add Project
         </Button>
-        <Button
-          variant="outlined"
-          startIcon={<GitHubIcon />}
-          onClick={() => setGithubDialogOpen(true)}
-        >
-          Import from GitHub
-        </Button>
-      </Stack>
+      </Box>
 
       <DataTable
         data={projects}
         columns={columns}
-        onEdit={handleOpen}
-        onDelete={handleDelete}
+        onEdit={handleEditProject}
+        onDelete={handleDeleteClick}
+        onView={handleViewProject}
+        loading={loading}
       />
 
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -159,59 +165,14 @@ const ProjectManager = () => {
           {currentProject ? 'Edit Project' : 'Add New Project'}
         </DialogTitle>
         <DialogContent>
-          <Box component="form" sx={{ mt: 2 }}>
-            <TextField
-              fullWidth
-              label="Title"
-              name="title"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              margin="normal"
-              required
-            />
-            <TextField
-              fullWidth
-              label="Description"
-              name="description"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              margin="normal"
-              multiline
-              rows={4}
-              required
-            />
-            <TextField
-              fullWidth
-              label="Technologies (comma-separated)"
-              name="technologies"
-              value={formData.technologies}
-              onChange={(e) => setFormData({ ...formData, technologies: e.target.value })}
-              margin="normal"
-              required
-            />
-            <TextField
-              fullWidth
-              label="GitHub Link"
-              name="githubLink"
-              value={formData.githubLink}
-              onChange={(e) => setFormData({ ...formData, githubLink: e.target.value })}
-              margin="normal"
-            />
-            <TextField
-              fullWidth
-              label="Live Demo Link"
-              name="liveDemoLink"
-              value={formData.liveDemoLink}
-              onChange={(e) => setFormData({ ...formData, liveDemoLink: e.target.value })}
-              margin="normal"
-            />
-          </Box>
+          <ProjectForm
+            currentProject={currentProject}
+            onClose={handleFormClose}
+            fetchProjects={fetchProjects}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained">
-            {currentProject ? 'Update' : 'Create'}
-          </Button>
         </DialogActions>
       </Dialog>
 
@@ -220,7 +181,20 @@ const ProjectManager = () => {
         onClose={() => setGithubDialogOpen(false)}
         onImport={handleGitHubImport}
       />
-    </Box>
+
+      {openConfirm && (
+        <ConfirmDialog
+          open={openConfirm}
+          title="Delete Project"
+          content="Are you sure you want to delete this project? This action cannot be undone."
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => {
+            setOpenConfirm(false);
+            setProjectToDelete(null);
+          }}
+        />
+      )}
+    </Container>
   );
 };
 

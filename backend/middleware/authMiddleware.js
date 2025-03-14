@@ -1,24 +1,54 @@
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 
-const authMiddleware = (req, res, next) => {
+// Authentication middleware
+const auth = async (req, res, next) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1]; // Bearer TOKEN
+        // Get token from header
+        const token = req.header('Authorization')?.replace('Bearer ', '');
         
         if (!token) {
-            return res.status(401).json({ message: "No token provided" });
+            return res.status(401).json({ 
+                success: false, 
+                message: 'No token, authorization denied' 
+            });
         }
-
-        if (!process.env.JWT_SECRET) {
-            throw new Error('JWT_SECRET is not defined');
-        }
-
+        
+        // Verify token
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
+        
+        // Find user by id
+        const user = await User.findById(decoded.id).select('-password');
+        
+        if (!user) {
+            return res.status(401).json({ 
+                success: false, 
+                message: 'Token is not valid' 
+            });
+        }
+        
+        // Add user to request
+        req.user = user;
         next();
     } catch (error) {
         console.error('Auth middleware error:', error);
-        res.status(401).json({ message: "Invalid or expired token" });
+        return res.status(401).json({ 
+            success: false, 
+            message: 'Token is not valid' 
+        });
     }
 };
 
-module.exports = authMiddleware; 
+// Admin only middleware
+const adminOnly = (req, res, next) => {
+    if (req.user && req.user.role === 'admin') {
+        next();
+    } else {
+        return res.status(403).json({ 
+            success: false, 
+            message: 'Access denied. Admin only.' 
+        });
+    }
+};
+
+module.exports = { auth, adminOnly }; 

@@ -1,9 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const { getUserProfile, updateUserProfile } = require('../controllers/userController');
-const authMiddleware = require('../middleware/authMiddleware');
+const { auth } = require('../middleware/authMiddleware');
+const userController = require('../controllers/userController');
 
-router.get('/profile', authMiddleware, getUserProfile);
-router.put('/profile', authMiddleware, updateUserProfile);
+// Get current user
+router.get('/me', auth, userController.getCurrentUser);
+
+// Update user profile
+router.put('/profile', auth, userController.updateProfile);
+
+// Change password
+router.put('/change-password', auth, userController.changePassword);
+
+// Delete account
+router.delete('/account', auth, userController.deleteAccount);
 
 module.exports = router; 

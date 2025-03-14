@@ -1,11 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { getBlogs, addBlog, updateBlog, deleteBlog } = require('../controllers/blogController');
-const authMiddleware = require('../middleware/authMiddleware');
+const { auth, adminOnly } = require('../middleware/authMiddleware');
+const blogController = require('../controllers/blogController');
 
-router.get('/', getBlogs);
-router.post('/', authMiddleware, addBlog);
-router.put('/:id', authMiddleware, updateBlog);
-router.delete('/:id', authMiddleware, deleteBlog);
+// Public routes
+router.get('/', blogController.getBlogs);
+router.get('/:id', blogController.getBlogById);
+
+// User routes - require authentication
+router.post('/:id/save', auth, blogController.saveBlog);
+router.delete('/:id/save', auth, blogController.unsaveBlog);
+router.get('/saved', auth, blogController.getSavedBlogs);
+
+// Admin routes - require authentication and admin role
+router.post('/', auth, adminOnly, blogController.createBlog);
+router.put('/:id', auth, adminOnly, blogController.updateBlog);
+router.delete('/:id', auth, adminOnly, blogController.deleteBlog);
+router.post('/:id/image', auth, adminOnly, blogController.uploadBlogImage);
 
 module.exports = router; 
